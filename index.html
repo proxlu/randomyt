@@ -23,18 +23,17 @@
         }
         button {
             padding: 10px 20px;
-            background-color: #ff0000;
             color: white;
             border: none;
             cursor: pointer;
             font-size: 16px;
             border-radius: 4px;
         }
-        button:hover {
-            background-color: #cc0000;
+        button:hover:not(:disabled) {
+            background-color: #cc0000 !important;
         }
         button:disabled {
-            background-color: #cccccc;
+            background-color: #cccccc !important;
             cursor: not-allowed;
         }
         .controls {
@@ -57,7 +56,7 @@
     <p>Cole o link do vídeo abaixo e clique em "Carregar Vídeo" para começar</p>
     
     <input type="text" id="youtube-url" placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ)" autofocus>
-    <button id="load-btn">Carregar Vídeo</button>
+    <button id="load-btn" disabled>Carregar Vídeo</button>
     
     <div id="video-container"></div>
     
@@ -76,12 +75,22 @@
         let isRandomNavigationActive = false;
         let currentVideoId = null;
         
+        // Elementos
+        const urlInput = document.getElementById('youtube-url');
+        const loadBtn = document.getElementById('load-btn');
+        const randomJumpBtn = document.getElementById('random-jump-btn');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        
         // Foca automaticamente no campo de input quando a página carrega
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('youtube-url').focus();
-            document.getElementById('youtube-url').select();
+            urlInput.focus();
+            urlInput.select();
         });
 
+        // Monitora mudanças no input
+        urlInput.addEventListener('input', updateLoadButtonState);
+        
         // Carrega a API do YouTube
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
@@ -93,19 +102,51 @@
         }
         
         // Event Listeners
-        document.getElementById('load-btn').addEventListener('click', loadVideo);
-        document.getElementById('random-jump-btn').addEventListener('click', jumpToRandomTimeOnce);
-        document.getElementById('start-btn').addEventListener('click', startRandomNavigation);
-        document.getElementById('stop-btn').addEventListener('click', stopRandomNavigation);
+        loadBtn.addEventListener('click', loadVideo);
+        randomJumpBtn.addEventListener('click', jumpToRandomTimeOnce);
+        startBtn.addEventListener('click', startRandomNavigation);
+        stopBtn.addEventListener('click', stopRandomNavigation);
+        
+        function updateLoadButtonState() {
+            const videoId = extractVideoId(urlInput.value.trim());
+            
+            if (!videoId) {
+                loadBtn.disabled = true;
+                loadBtn.style.backgroundColor = '#cccccc';
+                return;
+            }
+            
+            if (currentVideoId === videoId) {
+                loadBtn.disabled = true;
+                loadBtn.style.backgroundColor = '#cccccc';
+            } else {
+                loadBtn.disabled = false;
+                loadBtn.style.backgroundColor = '#ff0000';
+            }
+        }
+        
+        function disableAllButtons() {
+            loadBtn.disabled = true;
+            randomJumpBtn.disabled = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = true;
+        }
+        
+        function enableControlButtons() {
+            randomJumpBtn.disabled = false;
+            startBtn.disabled = false;
+            loadBtn.disabled = (currentVideoId === extractVideoId(urlInput.value.trim()));
+            loadBtn.style.backgroundColor = loadBtn.disabled ? '#cccccc' : '#ff0000';
+        }
         
         function loadVideo() {
-            const urlInput = document.getElementById('youtube-url').value.trim();
-            const videoId = extractVideoId(urlInput);
+            const urlInputValue = urlInput.value.trim();
+            const videoId = extractVideoId(urlInputValue);
             
             if (!videoId) {
                 updateStatus("Link do YouTube inválido. Por favor, cole um link válido.");
-                document.getElementById('youtube-url').focus();
-                document.getElementById('youtube-url').select();
+                urlInput.focus();
+                urlInput.select();
                 return;
             }
             
@@ -115,8 +156,8 @@
                 return;
             }
             
-            // Desativa o botão de carregar durante o carregamento
-            document.getElementById('load-btn').disabled = true;
+            // Desativa todos os botões durante o carregamento
+            disableAllButtons();
             updateStatus("Carregando vídeo...");
             
             // Limpa o player existente
@@ -148,10 +189,8 @@
         }
         
         function onPlayerReady(event) {
-            updateStatus("Vídeo carregado. Use os botões acima.");
-            document.getElementById('load-btn').disabled = false;
-            document.getElementById('random-jump-btn').disabled = false;
-            document.getElementById('start-btn').disabled = false;
+            updateStatus("Vídeo carregado. Use os botões abaixo.");
+            enableControlButtons();
         }
         
         function onPlayerStateChange(event) {
@@ -160,10 +199,10 @@
         
         function onPlayerError(event) {
             updateStatus("Erro ao carregar o vídeo. Verifique o link.");
-            document.getElementById('load-btn').disabled = false;
-            document.getElementById('youtube-url').focus();
-            document.getElementById('youtube-url').select();
             currentVideoId = null;
+            urlInput.focus();
+            urlInput.select();
+            updateLoadButtonState();
         }
         
         function jumpToRandomTimeOnce() {
@@ -185,9 +224,9 @@
             }
             
             isRandomNavigationActive = true;
-            document.getElementById('start-btn').disabled = true;
-            document.getElementById('stop-btn').disabled = false;
-            document.getElementById('random-jump-btn').disabled = true;
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            randomJumpBtn.disabled = true;
             
             function jumpToRandomTime() {
                 if (!player || !isRandomNavigationActive) return;
@@ -208,9 +247,9 @@
         function stopRandomNavigation() {
             isRandomNavigationActive = false;
             clearTimeout(intervalId);
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('stop-btn').disabled = true;
-            document.getElementById('random-jump-btn').disabled = false;
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            randomJumpBtn.disabled = false;
             updateStatus("Navegação aleatória parada");
         }
         
