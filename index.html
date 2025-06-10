@@ -12,13 +12,19 @@
             padding: 20px;
             text-align: center;
         }
+        #input-container {
+            margin-bottom: 20px;
+            width: 100%;
+        }
         #video-container {
             margin: 20px 0;
+            clear: both; /* Garante que fique abaixo dos elementos anteriores */
         }
         #youtube-url {
             width: 100%;
             padding: 10px;
             margin-bottom: 10px;
+            box-sizing: border-box; /* Inclui padding na largura total */
         }
         button {
             padding: 10px 20px;
@@ -28,7 +34,11 @@
             cursor: pointer;
             font-size: 16px;
             border-radius: 4px;
-            margin: 5px;
+            margin: 5px 0; /* Margem apenas em cima e embaixo */
+            width: 200px; /* Largura fixa para alinhamento */
+            display: block; /* Faz cada botão ocupar linha própria */
+            margin-left: auto;
+            margin-right: auto;
         }
         button:hover {
             background-color: #cc0000;
@@ -39,11 +49,16 @@
         }
         .controls {
             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
         #status {
             margin-top: 10px;
             font-style: italic;
             color: #666;
+            clear: both; /* Limpa qualquer flutuação */
         }
     </style>
 </head>
@@ -51,8 +66,10 @@
     <h1>Navegador Aleatório de Vídeos do YouTube</h1>
     <p>Cole o link do vídeo abaixo e clique em "Carregar Vídeo" para começar</p>
     
-    <input type="text" id="youtube-url" placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ)">
-    <button id="load-btn">Carregar Vídeo</button>
+    <div id="input-container">
+        <input type="text" id="youtube-url" placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ)">
+        <button id="load-btn">Carregar Vídeo</button>
+    </div>
     
     <div id="video-container"></div>
     
@@ -65,6 +82,7 @@
     <div id="status">Pronto para carregar um vídeo</div>
     
     <script>
+        // [O resto do script JavaScript permanece EXATAMENTE IGUAL à versão anterior]
         // Variáveis globais
         let player;
         let intervalId;
