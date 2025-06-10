@@ -29,6 +29,7 @@
             cursor: pointer;
             font-size: 16px;
             border-radius: 4px;
+            margin: 0 5px;
         }
         button:disabled {
             background-color: #cccccc;
@@ -53,7 +54,7 @@
     <h1>Navegador Aleatório de Vídeos do YouTube</h1>
     <p>Cole o link do vídeo abaixo e clique em "Carregar Vídeo" para começar</p>
     
-    <input type="text" id="youtube-url" placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ)" autofocus>
+    <input type="text" id="youtube-url" placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ)">
     <button id="load-btn" disabled>Carregar Vídeo</button>
     
     <div id="video-container"></div>
@@ -80,30 +81,28 @@
         const startBtn = document.getElementById('start-btn');
         const stopBtn = document.getElementById('stop-btn');
         
-        // Foca automaticamente no campo de input quando a página carrega
-        document.addEventListener('DOMContentLoaded', function() {
-            urlInput.focus();
-            urlInput.select();
-        });
-
-        // Monitora mudanças no input
-        urlInput.addEventListener('input', updateLoadButtonState);
-        
-        // Carrega a API do YouTube
-        const tag = document.createElement('script');
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName('script')[0];
-        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        
-        function onYouTubeIframeAPIReady() {
-            // Esta função é necessária para a API
+        // Configuração inicial
+        function init() {
+            urlInput.addEventListener('input', updateLoadButtonState);
+            loadBtn.addEventListener('click', loadVideo);
+            randomJumpBtn.addEventListener('click', jumpToRandomTimeOnce);
+            startBtn.addEventListener('click', startRandomNavigation);
+            stopBtn.addEventListener('click', stopRandomNavigation);
+            
+            // Foca no input mas sem autofocus para evitar o erro
+            setTimeout(() => {
+                urlInput.focus();
+                urlInput.select();
+            }, 100);
         }
         
-        // Event Listeners
-        loadBtn.addEventListener('click', loadVideo);
-        randomJumpBtn.addEventListener('click', jumpToRandomTimeOnce);
-        startBtn.addEventListener('click', startRandomNavigation);
-        stopBtn.addEventListener('click', stopRandomNavigation);
+        // Carrega a API do YouTube
+        function loadYouTubeAPI() {
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        }
         
         function updateLoadButtonState() {
             const videoId = extractVideoId(urlInput.value.trim());
@@ -140,42 +139,54 @@
                 return;
             }
             
-            // Verifica se é o mesmo vídeo
             if (currentVideoId === videoId) {
                 updateStatus("Este vídeo já está carregado.");
                 return;
             }
             
-            // Desativa todos os botões durante o carregamento
             disableAllButtons();
             updateStatus("Carregando vídeo...");
             
-            // Limpa o player existente
+            // Destrói o player existente corretamente
+            if (player) {
+                try {
+                    player.destroy();
+                } catch (e) {
+                    console.log("Erro ao destruir player anterior:", e);
+                }
+            }
+            
             document.getElementById('video-container').innerHTML = '';
             
-            // Para qualquer navegação aleatória em andamento
             if (isRandomNavigationActive) {
                 stopRandomNavigation();
             }
             
-            // Atualiza o vídeo atual
             currentVideoId = videoId;
             
-            // Cria novo player
-            player = new YT.Player('video-container', {
-                height: '315',
-                width: '560',
-                videoId: videoId,
-                playerVars: {
-                    'enablejsapi': 1,
-                    'origin': window.location.origin
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange,
-                    'onError': onPlayerError
-                }
-            });
+            // Cria novo player com tratamento de erros
+            try {
+                player = new YT.Player('video-container', {
+                    height: '315',
+                    width: '560',
+                    videoId: videoId,
+                    playerVars: {
+                        'enablejsapi': 1,
+                        'origin': window.location.origin,
+                        'widget_referrer': window.location.href
+                    },
+                    events: {
+                        'onReady': onPlayerReady,
+                        'onError': onPlayerError,
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            } catch (e) {
+                console.error("Erro ao criar player:", e);
+                updateStatus("Erro ao carregar o vídeo. Tente novamente.");
+                currentVideoId = null;
+                enableControlButtons();
+            }
         }
         
         function onPlayerReady(event) {
@@ -184,7 +195,7 @@
         }
         
         function onPlayerStateChange(event) {
-            // Pode adicionar lógica adicional baseada no estado do player se necessário
+            // Pode adicionar lógica adicional se necessário
         }
         
         function onPlayerError(event) {
@@ -196,19 +207,24 @@
         }
         
         function jumpToRandomTimeOnce() {
-            if (!player || !player.getDuration) {
+            if (!player || typeof player.getDuration !== 'function') {
                 updateStatus("Aguarde o vídeo carregar completamente.");
                 return;
             }
             
-            const duration = player.getDuration();
-            const randomTime = Math.random() * duration;
-            player.seekTo(randomTime, true);
-            updateStatus(`Pulou para ${formatTime(randomTime)} de ${formatTime(duration)} (uma vez)`);
+            try {
+                const duration = player.getDuration();
+                const randomTime = Math.random() * duration;
+                player.seekTo(randomTime, true);
+                updateStatus(`Pulou para ${formatTime(randomTime)} de ${formatTime(duration)} (uma vez)`);
+            } catch (e) {
+                console.error("Erro ao pular para tempo aleatório:", e);
+                updateStatus("Erro ao navegar no vídeo.");
+            }
         }
         
         function startRandomNavigation() {
-            if (!player || !player.getDuration) {
+            if (!player || typeof player.getDuration !== 'function') {
                 updateStatus("Aguarde o vídeo carregar completamente.");
                 return;
             }
@@ -221,13 +237,19 @@
             function jumpToRandomTime() {
                 if (!player || !isRandomNavigationActive) return;
                 
-                const duration = player.getDuration();
-                const randomTime = Math.random() * duration;
-                player.seekTo(randomTime, true);
-                updateStatus(`Pulou para ${formatTime(randomTime)} de ${formatTime(duration)}`);
-                
-                if (isRandomNavigationActive) {
-                    intervalId = setTimeout(jumpToRandomTime, 3000);
+                try {
+                    const duration = player.getDuration();
+                    const randomTime = Math.random() * duration;
+                    player.seekTo(randomTime, true);
+                    updateStatus(`Pulou para ${formatTime(randomTime)} de ${formatTime(duration)}`);
+                    
+                    if (isRandomNavigationActive) {
+                        intervalId = setTimeout(jumpToRandomTime, 3000);
+                    }
+                } catch (e) {
+                    console.error("Erro na navegação aleatória:", e);
+                    stopRandomNavigation();
+                    updateStatus("Erro na navegação automática. Recarregue o vídeo.");
                 }
             }
             
@@ -244,6 +266,7 @@
         }
         
         function extractVideoId(url) {
+            if (!url) return null;
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
             const match = url.match(regExp);
             return (match && match[2].length === 11) ? match[2] : null;
@@ -258,6 +281,16 @@
         function updateStatus(message) {
             document.getElementById('status').textContent = message;
         }
+        
+        // Inicializa a aplicação
+        window.onYouTubeIframeAPIReady = function() {
+            // API pronta
+        };
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+            loadYouTubeAPI();
+        });
     </script>
 </body>
 </html>
