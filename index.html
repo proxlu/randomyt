@@ -28,9 +28,14 @@
             cursor: pointer;
             font-size: 16px;
             border-radius: 4px;
+            margin: 5px;
         }
         button:hover {
             background-color: #cc0000;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
         }
         .controls {
             margin-top: 20px;
@@ -44,7 +49,7 @@
 </head>
 <body>
     <h1>Navegador Aleatório de Vídeos do YouTube</h1>
-    <p>Cole o link do vídeo abaixo e clique em "Iniciar" para começar a navegação aleatória</p>
+    <p>Cole o link do vídeo abaixo e clique em "Carregar Vídeo" para começar</p>
     
     <input type="text" id="youtube-url" placeholder="Cole o link do YouTube aqui (ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ)">
     <button id="load-btn">Carregar Vídeo</button>
@@ -52,17 +57,30 @@
     <div id="video-container"></div>
     
     <div class="controls">
-        <button id="start-btn">Iniciar Navegação Aleatória</button>
-        <button id="stop-btn">Parar</button>
+        <button id="start-btn" disabled>Iniciar Navegação Aleatória</button>
+        <button id="stop-btn" disabled>Parar</button>
     </div>
     
     <div id="status">Pronto para carregar um vídeo</div>
     
     <script>
+        // Variáveis globais
         let player;
         let intervalId;
         let isRandomNavigationActive = false;
         
+        // Carrega a API do YouTube
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        
+        // Função chamada quando a API do YouTube está pronta
+        function onYouTubeIframeAPIReady() {
+            // Esta função é necessária para a API, mesmo que vazia
+        }
+        
+        // Event Listeners
         document.getElementById('load-btn').addEventListener('click', loadVideo);
         document.getElementById('start-btn').addEventListener('click', startRandomNavigation);
         document.getElementById('stop-btn').addEventListener('click', stopRandomNavigation);
@@ -76,68 +94,75 @@
                 return;
             }
             
-            // Carrega o iframe do YouTube
-            document.getElementById('video-container').innerHTML = `
-                <iframe id="youtube-player" width="560" height="315" 
-                src="https://www.youtube.com/embed/${videoId}?enablejsapi=1" 
-                frameborder="0" allowfullscreen></iframe>
-            `;
+            updateStatus("Carregando vídeo...");
             
-            // Espera o iframe carregar
-            const iframe = document.getElementById('youtube-player');
-            iframe.onload = function() {
-                player = new YT.Player('youtube-player', {
-                    events: {
-                        'onReady': onPlayerReady
-                    }
-                });
-            };
+            // Limpa o player existente
+            document.getElementById('video-container').innerHTML = '';
             
-            // Carrega a API do YouTube se não estiver carregada
-            if (!window.YT) {
-                const tag = document.createElement('script');
-                tag.src = "https://www.youtube.com/iframe_api";
-                const firstScriptTag = document.getElementsByTagName('script')[0];
-                firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+            // Cria novo player
+            player = new YT.Player('video-container', {
+                height: '315',
+                width: '560',
+                videoId: videoId,
+                playerVars: {
+                    'enablejsapi': 1,
+                    'origin': window.location.origin
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onError': onPlayerError
+                }
+            });
+        }
+        
+        function onPlayerReady(event) {
+            updateStatus("Vídeo carregado. Clique em 'Iniciar' para navegação aleatória.");
+            document.getElementById('start-btn').disabled = false;
+        }
+        
+        function onPlayerError(event) {
+            updateStatus("Erro ao carregar o vídeo. Verifique o link.");
+        }
+        
+        function startRandomNavigation() {
+            if (!player || !player.getDuration) {
+                updateStatus("Erro: Player não está pronto.");
+                return;
             }
             
-            updateStatus("Vídeo carregado. Clique em 'Iniciar' para começar a navegação aleatória.");
+            isRandomNavigationActive = true;
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('stop-btn').disabled = false;
+            
+            // Função para pular para tempo aleatório
+            function jumpToRandomTime() {
+                const duration = player.getDuration();
+                const randomTime = Math.random() * duration;
+                player.seekTo(randomTime, true);
+                updateStatus(`Pulou para ${formatTime(randomTime)} de ${formatTime(duration)}`);
+                
+                // Agenda próximo salto apenas se ainda estiver ativo
+                if (isRandomNavigationActive) {
+                    intervalId = setTimeout(jumpToRandomTime, 3000); // 3 segundos
+                }
+            }
+            
+            // Inicia o primeiro salto
+            jumpToRandomTime();
+        }
+        
+        function stopRandomNavigation() {
+            isRandomNavigationActive = false;
+            clearTimeout(intervalId);
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('stop-btn').disabled = true;
+            updateStatus("Navegação aleatória parada");
         }
         
         function extractVideoId(url) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
             const match = url.match(regExp);
             return (match && match[2].length === 11) ? match[2] : null;
-        }
-        
-        function onPlayerReady(event) {
-            updateStatus("Player pronto para navegação aleatória");
-        }
-        
-        function startRandomNavigation() {
-            if (!player) {
-                updateStatus("Por favor, carregue um vídeo primeiro.");
-                return;
-            }
-            
-            isRandomNavigationActive = true;
-            updateStatus("Navegação aleatória ativada");
-            
-            // Define um intervalo para pular para pontos aleatórios
-            intervalId = setInterval(() => {
-                if (player.getDuration) {
-                    const duration = player.getDuration();
-                    const randomTime = Math.random() * duration;
-                    player.seekTo(randomTime, true);
-                    updateStatus(`Pulou para ${formatTime(randomTime)} de ${formatTime(duration)}`);
-                }
-            }, 3000); // Muda a cada 3 segundos (ajuste conforme necessário)
-        }
-        
-        function stopRandomNavigation() {
-            isRandomNavigationActive = false;
-            clearInterval(intervalId);
-            updateStatus("Navegação aleatória parada");
         }
         
         function formatTime(seconds) {
