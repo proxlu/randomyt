@@ -23,17 +23,15 @@
         }
         button {
             padding: 10px 20px;
+            background-color: #ff0000;
             color: white;
             border: none;
             cursor: pointer;
             font-size: 16px;
             border-radius: 4px;
         }
-        button:hover:not(:disabled) {
-            background-color: #cc0000 !important;
-        }
         button:disabled {
-            background-color: #cccccc !important;
+            background-color: #cccccc;
             cursor: not-allowed;
         }
         .controls {
@@ -112,17 +110,10 @@
             
             if (!videoId) {
                 loadBtn.disabled = true;
-                loadBtn.style.backgroundColor = '#cccccc';
                 return;
             }
             
-            if (currentVideoId === videoId) {
-                loadBtn.disabled = true;
-                loadBtn.style.backgroundColor = '#cccccc';
-            } else {
-                loadBtn.disabled = false;
-                loadBtn.style.backgroundColor = '#ff0000';
-            }
+            loadBtn.disabled = (currentVideoId === videoId);
         }
         
         function disableAllButtons() {
@@ -135,8 +126,7 @@
         function enableControlButtons() {
             randomJumpBtn.disabled = false;
             startBtn.disabled = false;
-            loadBtn.disabled = (currentVideoId === extractVideoId(urlInput.value.trim()));
-            loadBtn.style.backgroundColor = loadBtn.disabled ? '#cccccc' : '#ff0000';
+            updateLoadButtonState();
         }
         
         function loadVideo() {
